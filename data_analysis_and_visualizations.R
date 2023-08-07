@@ -2,14 +2,14 @@
 
 # To find the countries with the most successful space missions
 
-space_missions_processed %>% 
+space_missions_transformed %>% 
   filter(mission_status == "Success") %>% 
   count(country, sort = TRUE) %>% 
   arrange(desc(n))
 
-# Plot of the above findings
+# Plotting the countries with the number of successful missions
 
-space_missions_processed %>% 
+space_missions_transformed %>% 
   filter(mission_status == "Success") %>% 
   group_by(country) %>%
   summarise(count = n()) %>%
@@ -23,40 +23,36 @@ space_missions_processed %>%
   theme(axis.text.x = element_text(angle = 60, vjust = 0.5, hjust = 0.5)) 
 
 
-# Looking at mission status distribution over total launches per country
+# Looking at the distribution of mission status per country in a table
 
-space_missions_processed %>%
-  select(country,mission_status)%>%
+table(space_missions_transformed$country,space_missions_transformed$mission_status)
+
+
+# Plotting mission status distribution across total space missions of top 5 countries
+
+space_missions_transformed %>%
+  filter(country %in% c("USA", "Russia", "Kazakhstan", "China", "France")) %>% 
   group_by(country,mission_status) %>%
-  summarise(count = n()) %>%
-  arrange(desc(count)) %>%
-  ggplot(aes(x = fct_reorder(country, count), y = count, fill = mission_status)) +
-  geom_bar(stat = "identity") +
+  summarise(count = n())%>%
+  slice_max(count, n = 5) %>% 
+  ggplot(aes(x = fct_reorder(country, -count), y = count, fill = mission_status)) +
+  geom_bar(stat = "identity")+
   labs(title = "Mission Status of Space launches",
-    x = "Country name",
-    y = "Number of launches"
-  ) +
-  coord_flip() 
+       x = "Country",
+       y = "Number of launches") 
 
 
 # Rocket launches across time
 
-space_missions_processed %>% 
+space_missions_transformed %>% 
   group_by(year) %>% 
   summarise(count = n()) %>% 
   View()
 
-# Successful rocket launches over time
 
-space_missions_processed %>% 
-  filter(mission_status == "Success") %>% 
-  group_by(year) %>% 
-  summarise(count = n()) %>% 
-  View()
+# Plotting the total rocket launches from 1957- 2022.
 
-# Plotting the findings
-
-space_missions_processed %>%
+space_missions_transformed %>%
   group_by(year) %>% 
   summarise(count = n()) %>% 
   ggplot(aes(x = year, y = count)) +
@@ -73,15 +69,47 @@ space_missions_processed %>%
   labs(caption = "Data Source: Maven Analytics: Space Missions Dataset")
 
 
+# Looking at successful rocket launches of countries over time
+
+space_missions_transformed %>% 
+  filter(mission_status == "Success") %>% 
+  group_by(country,year) %>% 
+  summarise(count = n()) %>% 
+  View()
+
+
+# Plotting successful launches of Russia and USA from 1957- 2022
+
+space_missions_transformed %>%
+  filter(mission_status == "Success" & country %in% c("Russia", "USA")) %>% 
+  group_by(country,year) %>% 
+  summarise(count = n()) %>% 
+  ggplot(aes(x = year, y = count, color = country)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(name = "Country",
+                     values = c("darkgreen","indianred3"))+
+  labs(x = "Launch Year", 
+       y = "Number of Rocket Launches", 
+       title = "Successful Rocket Launches of Russia and USA",
+       subtitle = "1957 to 2022") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
+  labs(caption = "Data Source: Maven Analytics: Space Missions Dataset")
+
 
 # Finding average mission success rate over time
 
-# Looking at the distribution of mission status per country in a table
+# First creating a new data frame to look at the number and status of mission launches by country and year
 
-table(space_missions_processed$country,space_missions_processed$mission_status)
-
-# Looking at distribution of mission status per country by year
+mission_status <- space_missions_transformed %>%
+  group_by(country, year, mission_status) %>%
+  summarise(count = n())
   
+  
+# Reshaping the above data from long to wide format(This will help giving us better picture of the individual mission status per country and year)
+
 mission_status <- mission_status %>%
   pivot_wider(names_from = mission_status,values_from = count)
   
@@ -91,9 +119,11 @@ mission_status <- mission_status %>%
 mission_status <- mission_status %>%
   replace_na(list("Success" = 0, "Failure" = 0, "Prelaunch Failure" = 0, "Partial Failure" = 0))
 
+
 # Changing the variable names to lower case for better readability
 
 colnames(mission_status)<- tolower(colnames(mission_status)) 
+
 
 # Adding underscores for further readability
 
@@ -101,13 +131,14 @@ colnames(mission_status) <-  gsub("prelaunch failure", "prelaunch_failure",
        gsub("partial failure", "partial_failure",
             colnames(mission_status)))
 
+
 # Adding one new column of success rate
 
 mission_status <- mission_status %>%
   mutate(success_rate = (success/sum(success, failure, prelaunch_failure, partial_failure)) * 100)
 
 
-# Mission success rate over time
+# Plotting Average mission success rate of the total launches by year from 1957-2022
 
 mission_status %>% 
   group_by(year) %>% 
@@ -126,67 +157,17 @@ mission_status %>%
   labs(caption = "Data Source: Maven Analytics: Space Missions Dataset")
   
 
-
-# Looking at average success rate per country( Doesn't look that great)
-
-mission_status %>% 
-  group_by(country) %>% 
-  summarise(mean_success_rate = round(mean(success_rate))) %>% 
-  ggplot(aes(x= reorder(country,mean_success_rate), y = mean_success_rate, fill = country )) +
-  geom_col(width = 0.5) +
-  geom_text(aes(label = mean_success_rate), vjust = -0.2)+
-  labs(x = " Country",
-       y= "Average Success Rate",
-       title = "Average success Rate Per Country",
-       Subtitle = "1957 to 2022" ) +
-  theme_classic() +
-  theme(axis.line = element_line(color = "gray"),
-        axis.text.x = element_text(color = "gray", size = 12, hjust = 1),
-        axis.text.y = element_text(color = "gray"),
-        axis.title = element_text(color = "gray"),
-        panel.background = element_rect(fill = "white"), 
-        panel.grid.major = element_line(color = "gray"), 
-        legend.position = "none") +
-  coord_flip()
-  
-
-
-# Trying something new (dumbell plot) (Look further into it)
-
-install.packages("ggalt")
-library(ggalt)
-
-
-space_missions_processed %>%
-  filter(mission_status == "Success") %>% 
-  group_by(country,year) %>% 
-  summarise(count = n()) %>% 
-  ggplot(aes(y = reorder(country, -count),
-             x = year,
-             xend = year)) +  
-  geom_dumbbell(size = 1.2,
-                size_x = 3, 
-                size_xend = 3,
-                colour = "grey", 
-                colour_x = "blue", 
-                colour_xend = "indianred3") +
-  theme_minimal() + 
-  theme(legend.position = "none",
-        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
-  labs(caption = "Data Source: Maven Analytics: Space Missions Dataset")
-
-
 # Looking at the rockets used by all the countries for space missions 
 
-space_missions_processed %>%
+space_missions_transformed %>%
   count(country, rocket, rocket_status, sort = TRUE) %>%
   arrange(desc(n))
 
 
-#Creating a function for automation and avoiding duplication
+#Creating a function to look at individual country rockets for automation 
 
 rockets_by_country <- function(country_name){
-  space_missions_processed %>%
+  space_missions_transformed %>%
     filter(country == country_name) %>% 
     count(rocket, rocket_status, sort = TRUE) %>%
     arrange(desc(n))
@@ -206,9 +187,18 @@ rockets_by_country("France")
 
 
 
+# Creating a new data frame to save the top 5 rockets used by each of the top 5 countries for their missions
+
+top_five_rockets <- space_missions_transformed %>%
+  filter(country %in% c("Russia", "USA", "Kazakhstan", "China", "France")) %>%
+  group_by(country, rocket) %>%
+  summarise(launch_count = n()) %>% 
+  slice_max(launch_count, n = 5)
+
+
 # Plotting top 5 rockets used for space missions by the above countries
 
-space_missions_processed %>%
+space_missions_transformed %>%
   filter(country %in% c("Russia", "USA", "Kazakhstan", "China", "France")) %>%
   group_by(country, rocket) %>%
   summarise(cnt = n()) %>% 
@@ -224,7 +214,7 @@ space_missions_processed %>%
 # Creating a function to plot top 5 rockets of a country to automate the process
 
 plot_top_five_rockets <- function(country_name){
-  space_missions_processed %>%
+  space_missions_transformed %>%
     filter(country %in% c(country_name)) %>%
     group_by(country, rocket) %>%
     summarise(cnt = n()) %>% 
@@ -236,7 +226,6 @@ plot_top_five_rockets <- function(country_name){
     theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     labs(x = "Rockets", y = "Number of launches")
 }
-
 
 # Looking at top 5 rockets used by each of the top 5 countries 
 
@@ -250,35 +239,65 @@ plot_top_five_rockets("China")
 
 plot_top_five_rockets("France")
 
+  
+# Adding rocket status to the above plots
+
+# Creating a function to plot top 5 rockets and indicate their status for each country to automate the process
+
+plot_rocket_status <- function(country_name, rocket_name1, rocket_name2, rocket_name3,rocket_name4, rocket_name5){
+  space_missions_transformed %>%
+    filter(country == country_name & rocket %in% c(rocket_name1,rocket_name2, rocket_name3, rocket_name4, rocket_name5)) %>% 
+    group_by(rocket, rocket_status) %>%
+    summarise(cnt = n()) %>% 
+    slice_max(cnt, n = 5) %>% 
+    ggplot(aes(x = reorder(rocket, -cnt), y = cnt, fill = rocket_status)) +
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c("Active" = "darkgreen", "Retired" = "indianred3"))+
+    geom_text(aes(label = cnt), vjust = -0.5) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    labs(title =  "Top 5 Rocket Launches",
+      subtitle = country_name,
+      x = "Rockets", 
+      y = "Number of launches")
+}
+
+# Looking at top 5 rocket status of Russia, USA, Kazakhstan, China and France
 
 
-# Adding rocket status
+plot_rocket_status("Russia","Cosmos-3M (11K65M)","Voskhod", "Cosmos-2I (63SM)", "Tsyklon-3", "Molniya-M /Block ML")
 
-top_five_countries_rockets <- space_missions_processed %>%
-  filter(country %in% c("Russia", "USA", "Kazakhstan", "China", "France")) %>%
-  group_by(country, rocket) %>%
-  summarise(launch_count = n()) %>% 
-  slice_max(launch_count, n = 5)
+plot_rocket_status("USA", "Falcon 9 Block 5","Delta II 7925", "Atlas-SLV3 Agena-D","Atlas V 401", "Space Shuttle Discovery")
 
+plot_rocket_status("Kazakhstan", "Voskhod", "Tsyklon-2","Soyuz U", "Molniya","Vostok-2")
 
-top_five_countries_rockets <- top_five_countries_rockets %>% 
-  mutate(rocket_status = space_missions_processed$rocket_status)
+plot_rocket_status("China", "Long March 2C", "Long March 2D","Long March 3B/E","Long March 4B", "Long March 4C")
 
-top_five_countries_rockets <- cbind(space_missions_processed$rocket_status)
+plot_rocket_status("France", "Ariane 5 ECA", "Ariane 44L", "Ariane 44LP", "Vega", "Ariane 5 G")
 
 
-# Tried it but doesn't work( Getting all the rockets and not top 5)
+# Space Launch locations 
 
-space_missions_processed %>%
-  filter(country == "China") %>% 
-  group_by(rocket, rocket_status) %>%
-  summarise(cnt = n()) %>% 
-  slice_max(cnt, n = 5) %>% 
-  ggplot(aes(x = reorder(rocket, -cnt), y = cnt, color = rocket_status)) +
-  geom_bar(stat = "identity") +
-  geom_text(aes(label = cnt), vjust = -0.5) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-  labs(x = "Rockets", y = "Number of launches")
+# Creating a function for distinct locations by country
+
+distinct_locations_by_country <- function(country_name){
+  space_missions_transformed %>% 
+    filter(country == country_name) %>% 
+    distinct(location)
+}
+
+# Looking at space launch locations by top 5 countries
+
+distinct_locations_by_country("Russia")
+
+distinct_locations_by_country("USA")
+
+distinct_locations_by_country("Kazakhstan")
+
+distinct_locations_by_country("China")
+
+distinct_locations_by_country("France")
+
+
 
 
 
