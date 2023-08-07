@@ -1,22 +1,22 @@
-#Data Exploration
+# Data Exploration
 
 install.packages("tidyverse")
 library(tidyverse)
 
-space_missions <- read.csv(file.choose(),header = TRUE)
+# space_missions <- read.csv(file.choose(),header = TRUE)
 
 View(space_missions)
 
-#Looking at the structure of the data
+# Looking at the structure of the data
 
 glimpse(space_missions)
 
-#Looking at first 6 and last 6 rows of data
+# Looking at first 6 and last 6 rows of data
 
 head(space_missions)
 tail(space_missions)
 
-#Looking at the names of the variables
+# Looking at the names of the variables
 
 names(space_missions)
 

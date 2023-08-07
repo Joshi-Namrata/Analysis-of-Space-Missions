@@ -1,6 +1,6 @@
 # Data Cleaning
 
-#Creating a copy of this dataset to clean
+# Creating a copy of this dataset to clean
 
 space_missions_cleaned <- space_missions
 
@@ -54,7 +54,7 @@ space_missions_cleaned <- space_missions_cleaned %>%
   mutate(mission_status= as.factor(mission_status)) %>% 
   glimpse()
 
-#Creating levels for the rocket status and mission status
+# Creating levels for the rocket status and mission status
 
 levels(space_missions_cleaned$rocket_status)
 levels(space_missions_cleaned$mission_status)
@@ -66,9 +66,6 @@ space_missions_cleaned <- space_missions_cleaned[!duplicated(space_missions_clea
 # Checking the summary again
 
 summary(space_missions_cleaned)
-
-
-
 
 
 

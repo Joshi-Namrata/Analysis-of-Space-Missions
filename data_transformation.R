@@ -1,41 +1,45 @@
-# Data Processing
+# Data Transformation
 
-#Making a copy of the cleaned dataset for further processing
+# Making a copy of the cleaned dataset for further processing
 
-space_missions_processed <- space_missions_cleaned
+space_missions_transformed <- space_missions_cleaned
 
-#Extracting the country from the location
+# Extracting the country from the location
 
-space_missions_processed <- space_missions_processed %>% 
+space_missions_transformed <- space_missions_transformed %>% 
   mutate(country = word(location, -1))
+
+# Extracting Year from the date
+
+space_missions_transformed <- space_missions_transformed %>% 
+  mutate(year = as.numeric(format(date, "%Y")))
 
 # Looking at unique countries
 
-unique(space_missions_processed$country)
+unique(space_missions_transformed$country)
 
 # Counting the number of missions per country
 
-space_missions_processed %>% count(country, sort =T)
+space_missions_transformed %>% count(country, sort =T)
 
 # Extracting the locations without the proper country name to understand it better
 
-space_missions_processed%>%
+space_missions_transformed %>%
   select(country, location)%>%
   filter(country %in% c("Ocean", "Sea", "Canaria", "Facility", "Site")) %>% 
   View()
 
 
-space_missions_processed%>%
+space_missions_transformed %>%
   select(location, country, company, rocket) %>%
   filter(country == "Zealand") %>% 
   View()
 
 
-
 #Renaming the country names based on other location information found above
 
-space_missions_processed <-
-  space_missions_processed %>% mutate(
+space_missions_transformed <-
+  space_missions_transformed %>% mutate(
     country = case_when(
       location =="K-407 Submarine, Barents Sea Launch Area, Barents Sea"|
         # OR
@@ -55,19 +59,19 @@ space_missions_processed <-
 
 # Checking the name of the rocket to understand which country launched it.
 
-space_missions_processed%>%
+space_missions_transformed %>%
   select(location, country, company, rocket) %>%
   filter(country == "Canaria") %>% 
   View()
 
 # Rechecking the unique countries list
 
-unique(space_missions_processed$country)
+unique(space_missions_transformed$country)
 
 
 # Changing the names of some of the country names to their appropriate countries based on the location info, rocket name
 
-space_missions_processed <- space_missions_processed %>%
+space_missions_transformed <- space_missions_transformed %>%
   mutate(
     country = str_replace(country, "Canaria", replacement = "USA"),
     country = str_replace(country, "Barents Sea", replacement = "Russia"),
@@ -77,14 +81,11 @@ space_missions_processed <- space_missions_processed %>%
     country = str_replace(country, "Zealand", replacement = "New Zealand")
   )
 
-space_missions_processed %>% count(country, sort = T)
+# Looking at the number of space missions by country
+
+space_missions_transformed %>% 
+  count(country, sort = T)
 
 
 
-
-
-
-
-
-
-
+  
