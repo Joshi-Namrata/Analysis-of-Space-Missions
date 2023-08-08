@@ -3,7 +3,11 @@
 install.packages("tidyverse")
 library(tidyverse)
 
-# space_missions <- read.csv(file.choose(),header = TRUE)
+#Loading Data
+
+space_missions <- read.csv(file.choose(),header = TRUE)
+
+# Looking at the data
 
 View(space_missions)
 

@@ -1,0 +1,597 @@
+---
+title: "Analysis Of Space Missions"
+author: "Namrata Joshi"
+date: "2023-08-07"
+output:html_document: default
+---
+
+# Introduction
+
+This is my first R project that I completed to analyze the **space missions data from 1957 to August 2022**. 
+
+This interesting dataset is obtained from **Maven Analytics** data playground which contains details on the location, date, and result of the launch, the company responsible, and the name, price, and status of the rocket used for the mission.
+
+Here, I have used R to **explore**, **clean** and **transform** the data extracting useful information to further **analyze** and **visualize** it to find trends in the space missions from 1957 to 2022.
+
+## Questions to explore
+
+1. Which countries have had the most successful space missions? Has it always been that way?
+
+2. How have rocket launches trended across time? Has mission success rate increased?
+
+3. Which rocket has been used for the most space missions? Is it still active?
+
+
+# Set up
+
+
+### Loading Required libraries
+
+```{r setup, include= TRUE}
+knitr::opts_chunk$set(eval = TRUE, warning = FALSE)
+library(tidyverse)
+```
+
+### Loading Data
+
+```{r load data}
+space_missions <- read.csv(file.choose(),header = TRUE)
+```
+
+# Data Exploration
+
+In this phase, I will explore the data looking at the structure and summary of the data, identifying variable names, types and presence of any duplicate data.
+
+
+### Looking at the structure of the data
+
+```{r glimpse of data structure, echo=TRUE}
+glimpse(space_missions)
+```
+
+```{r first 6 rows, echo=TRUE}
+head(space_missions)
+```
+
+```{r last 6 rows, echo=TRUE}
+tail(space_missions)
+```
+
+### Identifying duplicate data
+
+```{r check duplicate data, echo=TRUE}
+space_missions[duplicated(space_missions), ]
+```
+
+There is one duplicate row as seen from the above code
+
+### Summary of data
+
+```{r data summary, echo=TRUE}
+summary(space_missions)
+```
+
+
+# Data Cleaning
+
+In this phase, I will process the data to remove duplicate rows, identify and replace blank values with NA values, identify the number of NA values, change column names for readability and change few of the variable types for consistency and accuracy.
+
+
+### Creating a copy of the exisiting dataframe to facilitate cleaning 
+
+```{r creating a copy of data frame, echo=TRUE}
+
+space_missions_cleaned <- space_missions
+```
+
+
+### Replacing blank values in dataset with "NA" values
+
+```{r replacing blank with NA, echo=TRUE}
+space_missions_cleaned[space_missions_cleaned == ""] <- NA
+```
+
+### Finding out the number of "NA" values in the variables
+
+```{r total number of NA , echo=TRUE}
+sum(is.na(space_missions_cleaned))
+
+```
+
+### Finding out the number of "NA" values in each variable
+
+```{r number of NA in each variable, echo=TRUE}
+sum(is.na(space_missions_cleaned$Company))
+sum(is.na(space_missions_cleaned$Location))
+sum(is.na(space_missions_cleaned$Date))
+sum(is.na(space_missions_cleaned$Time))
+sum(is.na(space_missions_cleaned$Rocket))
+sum(is.na(space_missions_cleaned$Mission))
+sum(is.na(space_missions_cleaned$RocketStatus))
+sum(is.na(space_missions_cleaned$Price))
+sum(is.na(space_missions_cleaned$MissionStatus))
+
+```
+
+We can see that "Price" Variable has the maximum number of NA values- 3365 out of 4630 rows and hence we don't have enough data on Price to use it for our analysis to identify trends.
+
+### Changing column names from camel case to lower case
+
+```{r change col name to lower case, echo=TRUE}
+colnames(space_missions_cleaned) <- tolower(colnames(space_missions_cleaned))
+```
+
+### Adding underscores in few of the columns for better visibility
+
+```{r add underscore to col names, echo=TRUE}
+colnames(space_missions_cleaned) <- gsub("rocketstatus","rocket_status",
+                                         gsub("missionstatus","mission_status",
+                                              colnames(space_missions_cleaned)))
+```
+
+### Changing the date, rocket status and mission status variables format
+
+```{r change col formats, echo=TRUE}
+space_missions_cleaned <- space_missions_cleaned %>% 
+  mutate(date = as_date(date)) %>% 
+  mutate(rocket_status= as.factor(rocket_status)) %>% 
+  mutate(mission_status= as.factor(mission_status)) %>% 
+  glimpse()
+```
+
+We can see that rocket status and mission status are now changed to factor format and date to a date format.
+
+### Creating levels for the rocket status and mission status
+
+```{r add levels to factors, echo=TRUE}
+levels(space_missions_cleaned$rocket_status)
+levels(space_missions_cleaned$mission_status)
+```
+
+### Looking at the summary of the data after the changes
+
+```{r summary, echo=TRUE}
+summary(space_missions_cleaned)
+
+```
+
+# Data Tranformation
+
+In this phase, I will make changes to the data for further processing by adding new columns, finding and replacing few of the values to appropriate values for the location to maintain consistency and accuracy.
+
+### Creating a copy of the cleaned dataset for further processing
+
+```{r copy of clean data frame, echo=TRUE}
+space_missions_transformed <- space_missions_cleaned
+```
+
+### Extracting country from the location
+
+```{r create new country column, echo=TRUE}
+space_missions_transformed <- space_missions_transformed %>% 
+  mutate(country = word(location, -1))
+```
+
+### Extracting year from the date
+
+```{r create new year column, echo=TRUE}
+space_missions_transformed <- space_missions_transformed %>% 
+  mutate(year = as.numeric(format(date, "%Y")))
+```
+
+### Looking at unique countries
+
+```{r unique country list, echo=TRUE}
+unique(space_missions_transformed$country)
+```
+
+### Counting the number of missions per country
+
+```{r countries and number of missions, echo=TRUE}
+space_missions_transformed %>% count(country, sort =T)
+```
+
+### Extracting the locations without the proper country name 
+
+```{r locations without country name}
+space_missions_transformed %>%
+  select(country, location)%>%
+  filter(country %in% c("Ocean", "Sea", "Canaria", "Facility", "Site")) %>% 
+  View()
+```
+
+### Renaming country names based on the other location information
+
+```{r rename country names}
+space_missions_transformed <-
+  space_missions_transformed %>% mutate(
+    country = case_when(
+      location =="K-407 Submarine, Barents Sea Launch Area, Barents Sea"|
+        # OR
+        location == "K-496 Submarine, Barents Sea Launch Area, Barents Sea"|
+        # OR
+        location =="K-84 Submarine, Barents Sea Launch Area, Barents Sea" ~ "Barents Sea",
+      location == "LP Odyssey, Kiritimati Launch Area, Pacific Ocean" ~ "Pacific Ocean",
+      location == "LP-41, Kauai, Pacific Missile Range Facility" ~ "Range Facility",
+      location == "Tai Rui Barge, Yellow Sea" |
+        # OR
+      location == "DeBo 3 Barge, Yellow Sea" ~ "Yellow Sea",
+      location == "Launch Plateform, Shahrud Missile Test Site" ~ "Shahrud Missile Test Site",
+      TRUE ~ word(location, -1)
+    )
+  )
+```
+
+### Rechecking the unique countries list
+
+```{r country list after cleaning, echo=TRUE}
+unique(space_missions_transformed$country)
+
+```
+
+### Replacing few of the country names further based on the location and rocket information
+
+```{r replace country names}
+space_missions_transformed <- space_missions_transformed %>%
+  mutate(
+    country = str_replace(country, "Canaria", replacement = "USA"),
+    country = str_replace(country, "Barents Sea", replacement = "Russia"),
+    country = str_replace(country, "Yellow Sea", replacement = "China"),
+    country = str_replace(country, "Range Facility", replacement = "USA"),
+    country = str_replace(country, "Shahrud Missile Test Site", replacement = "Iran"),
+    country = str_replace(country, "Zealand", replacement = "New Zealand")
+  )
+
+```
+
+### Looking at the number of space missions by country
+
+```{r unique countries and mission numbers, echo=TRUE}
+space_missions_transformed %>% 
+  count(country, sort = T)
+```
+
+# Data Analysis And Visualizations
+
+In this phase, I will analyze the data to answer the questions and create plots using ggplot2 library of the tidyverse to show the trends in the data.
+
+## **Which countries have had the most successful space missions? Has it always been that way?**
+
+### Finding the countries with the most successful space missions
+
+```{r countries with successful missions, echo=TRUE}
+space_missions_transformed %>% 
+  filter(mission_status == "Success") %>% 
+  count(country, sort = TRUE) %>% 
+  arrange(desc(n))
+```
+
+### Plotting the countries with the number of successful missions
+
+```{r plot successful countries missions}
+space_missions_transformed %>% 
+  filter(mission_status == "Success") %>% 
+  group_by(country) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>% 
+  ggplot(aes(x = fct_reorder(country, -count), y= count))+
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = count), vjust = -0.2) +
+  labs(title = "Countries With Successful Space Missions",
+       x= "Country Name",
+       y = "Number of successful launches") +
+  theme(axis.text.x = element_text(angle = 60, vjust = 0.5, hjust = 0.5)) 
+```
+
+### Table of missions and their status per country
+
+```{r table of countries and mission status, echo=TRUE}
+table(space_missions_transformed$country,space_missions_transformed$mission_status)
+```
+
+### Plotting mission status distribution over the total missions completed by top 5 countries
+
+```{r plot mission status of top 5 countries, echo=TRUE, message=FALSE, warning=FALSE}
+space_missions_transformed %>%
+  filter(country %in% c("USA", "Russia", "Kazakhstan", "China", "France")) %>% 
+  group_by(country,mission_status) %>%
+  summarise(count = n())%>%
+  slice_max(count, n = 5) %>% 
+  ggplot(aes(x = fct_reorder(country, -count), y = count, fill = mission_status)) +
+  geom_bar(stat = "identity")+
+  labs(title = "Mission Status of Space launches",
+       x = "Country",
+       y = "Number of launches") 
+```
+
+##  **How have rocket launches trended across time? Has mission success rate increased?**
+
+### Plotting the total rocket launches from 1957- 2022.
+
+```{r plot rocket launches over time, echo=TRUE}
+space_missions_transformed %>%
+  group_by(year) %>% 
+  summarise(count = n()) %>% 
+  ggplot(aes(x = year, y = count)) +
+  geom_line(color = "indianred3") +
+  geom_point(color = "indianred3")+
+  geom_smooth() +
+  labs(x = "Launch Year", 
+       y = "Number of Rocket Launches", 
+       title = "Rocket Launches across time",
+       subtitle = "1957 to 2022") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
+  labs(caption = "Data Source: Maven Analytics: Space Missions Dataset")
+```
+
+Here, We can see the trend in the number of space missions which increased from 1957-1975, decreased gradually from 1975-2005 and increased again from 2005 to 2022.
+
+
+### Plotting successful launches of Russia and USA from 1957-2022. 
+
+```{r Russia and USA missions over time, echo=TRUE, message=FALSE, warning=FALSE}
+space_missions_transformed %>%
+  filter(mission_status == "Success" & country %in% c("Russia", "USA")) %>% 
+  group_by(country,year) %>% 
+  summarise(count = n()) %>% 
+  ggplot(aes(x = year, y = count, color = country)) +
+  geom_line() +
+  geom_point()+
+  scale_color_manual(name = "Country",
+                     values = c("darkgreen","indianred3"))+
+  labs(x = "Launch Year", 
+       y = "Number of Rocket Launches", 
+       title = "Successful Rocket Launches of Russia and USA",
+       subtitle = "1957 to 2022") +
+  theme_minimal() +
+  theme(legend.position = "right",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
+  labs(caption = "Data Source: Maven Analytics: Space Missions Dataset")
+```
+
+Here we can see a pattern across time in the launches by both USA and Russia having relatively closer number of total successful launches.
+
+We can see that Russia had higher number of successful launches than USA from 1968 to 1990 but the trend changes later from 1990 to 2022 where USA had a higher number of successful launches than Russia.
+
+
+### Finding average mission success rate over time
+
+
+#### First creating a new data frame to look at the number and status of mission launches by country and year
+
+```{r create mission status data frame, message=FALSE, warning=FALSE}
+mission_status <- space_missions_transformed %>%
+  group_by(country, year, mission_status) %>%
+  summarise(count = n())
+```
+
+#### Reshaping the above data from long to wide format
+
+```{r reshape data(long to wide)}
+mission_status <- mission_status %>%
+  pivot_wider(names_from = mission_status,values_from = count)
+```
+
+#### Replacing 0 with NA values
+
+```{r replace zero to NA}
+mission_status <- mission_status %>%
+  replace_na(list("Success" = 0, "Failure" = 0, "Prelaunch Failure" = 0, "Partial Failure" = 0))
+```
+
+#### Changing the variable names for better readability
+
+```{r change mission status variable names}
+colnames(mission_status)<- tolower(colnames(mission_status)) 
+
+colnames(mission_status) <-  gsub("prelaunch failure", "prelaunch_failure",
+       gsub("partial failure", "partial_failure",
+            colnames(mission_status)))
+```
+
+####  Adding the column of success rate
+
+```{r add success rate column}
+mission_status <- mission_status %>%
+  mutate(success_rate = (success/sum(success, failure, prelaunch_failure, partial_failure)) * 100)
+```
+
+### Plot average success rate of the total missions from 1957-2022
+
+```{r plot avg success rate over time, echo=TRUE}
+mission_status %>% 
+  group_by(year) %>% 
+  summarise(mean_success_rate = mean(success_rate)) %>% 
+  ggplot(aes(x = year, y = mean_success_rate)) +
+  geom_line(color = "indianred3")+
+  geom_point(color = "indianred3")+
+  geom_smooth() +
+  labs(x = "Launch Year", 
+       y = "Average Success Rate", 
+       title = "Success Rate Over Time",
+       subtitle = "1957 to 2022") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5)) +
+  labs(caption = "Data Source: Maven Analytics: Space Missions Dataset")
+```
+
+We can see in the above graph that the average success rate of all the missions increases from 1957- 1980 but stays more or less the same from 1980- 2022.
+
+
+## **Which rocket has been used for the most space missions? Is it still active?**
+
+### Looking at the rockets used by all the countries for space missions 
+
+```{r rockets used by countries, eval = FALSE}
+space_missions_transformed %>%
+  count(country, rocket, rocket_status, sort = TRUE) %>%
+  arrange(desc(n))
+```
+
+#### Creating a function to look at individual country rockets for automating the process
+
+```{r function_rockets_by_country}
+rockets_by_country <- function(country_name){
+  space_missions_transformed %>%
+    filter(country == country_name) %>% 
+    count(rocket, rocket_status, sort = TRUE) %>%
+    arrange(desc(n))
+}
+
+```
+
+#### Looking at rockets used by top 5 countries for the missions
+
+```{r top_5_country_rockets, eval = FALSE}
+rockets_by_country("Russia")
+
+rockets_by_country("USA")
+
+rockets_by_country("Kazakhstan")
+
+rockets_by_country("China")
+
+rockets_by_country("France")
+
+```
+
+#### Creating a new data frame for the top 5 rockets used by each of the top 5 countries 
+
+```{r create new data frame of top 5 rockets, message=FALSE, warning=FALSE}
+top_five_rockets <- space_missions_transformed %>%
+  filter(country %in% c("Russia", "USA", "Kazakhstan", "China", "France")) %>%
+  group_by(country, rocket) %>%
+  summarise(launch_count = n()) %>% 
+  slice_max(launch_count, n = 5)
+```
+
+### Plotting top 5 rockets used for space missions by the above countries
+
+```{r plot top 5 rockets for top 5 countries, echo=TRUE, message=FALSE, warning=FALSE}
+space_missions_transformed %>%
+  filter(country %in% c("Russia", "USA", "Kazakhstan", "China", "France")) %>%
+  group_by(country, rocket) %>%
+  summarise(cnt = n()) %>% 
+  slice_max(cnt, n = 5) %>% 
+  ggplot(aes(x = reorder(rocket, -cnt), y = cnt)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = cnt), vjust = -0.5) +
+  facet_wrap(~country, ncol = 2, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  labs(x = "Rockets", y = "Number of launches")
+```
+
+#### Creating a function to plot top 5 rockets of a country to automate the process
+
+```{r function of top 5 rockets}
+plot_top_five_rockets <- function(country_name){
+  space_missions_transformed %>%
+    filter(country %in% c(country_name)) %>%
+    group_by(country, rocket) %>%
+    summarise(cnt = n()) %>% 
+    slice_max(cnt, n = 5) %>% 
+    ggplot(aes(x = reorder(rocket, -cnt), y = cnt)) +
+    geom_bar(stat = "identity") +
+    geom_text(aes(label = cnt), vjust = -0.5) +
+    facet_wrap(~country, ncol = 2, scales = "free_x") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(x = "Rockets", y = "Number of launches")
+}
+```
+
+
+#### Plotting top 5 rockets used by each of the top 5 countries
+
+```{r plotting each country top 5 rockets, echo=TRUE, message=FALSE, warning=FALSE}
+plot_top_five_rockets("Russia")
+
+plot_top_five_rockets("USA")
+
+plot_top_five_rockets("Kazakhstan")
+
+plot_top_five_rockets("China")
+
+plot_top_five_rockets("France")
+```
+
+### Determining status of the above rockets
+
+#### Creating a function to plot rocket status of top 5 rockets of each of the countries
+
+```{r plot rocket status}
+plot_rocket_status <- function(country_name, rocket_name1, rocket_name2, rocket_name3,rocket_name4, rocket_name5){
+  space_missions_transformed %>%
+    filter(country == country_name & rocket %in% c(rocket_name1,rocket_name2, rocket_name3, rocket_name4, rocket_name5)) %>% 
+    group_by(rocket, rocket_status) %>%
+    summarise(cnt = n()) %>% 
+    slice_max(cnt, n = 5) %>% 
+    ggplot(aes(x = reorder(rocket, -cnt), y = cnt, fill = rocket_status)) +
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c("Active" = "darkgreen", "Retired" = "indianred3"))+
+    geom_text(aes(label = cnt), vjust = -0.5) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    labs(title =  "Top 5 Rocket Launches",
+      subtitle = country_name,
+      x = "Rockets", 
+      y = "Number of launches")
+}
+```
+
+### Plotting top 5 Russian rockets and their status
+
+```{r status of Russia rockets, echo=TRUE, message=FALSE, warning=FALSE}
+plot_rocket_status("Russia","Cosmos-3M (11K65M)","Voskhod", "Cosmos-2I (63SM)", "Tsyklon-3", "Molniya-M /Block ML")
+
+```
+
+We can see that the rocket which is mostly used for most space missions is **Cosmos-3M (11K65M)** of Russia and it is **Retired**.
+
+
+# Conclusion
+
+1. Russia, USA, Kazakhstan, China and France are the top 5 countries which had the most successful space missions.
+
+2. Russia and USA had relatively higher number of successful rocket launches than the other countries.
+
+3. Russia had higher number of successful launches than USA from 1968 to 1990 but the trend changes later from 1990 to 2022 where USA had more successful launches than Russia.
+
+4. There is an interesting trend in the total space missions from 1957- 2022 where total number of space missions increased and decreased over time as seen from the line chart.
+
+   + Increased from 1957- 1975 : Mainly due to space race between USA and Soviet Union with rise in increased federal support and funding resulting in increased launches during that time frame. The race however ended in 1975 with the first cooperative launch of Apollo-Soyuz mission. ^[Muir-Harmony, T.  (2017, February 27). The Space Race and American Foreign Relations. Oxford Research Encyclopedia of American History. Retrieved 8 Aug. 2023, from https://oxfordre.com/americanhistory/view/10.1093/acrefore/9780199329175.001.0001/acrefore-9780199329175-e-274.]
+
+   + Decreased from 1975- 2005 : Possibly due increased cost of launching big satellites making space missions very costly. In addition to the increased cost, there was reduction in federal space funding to NASA after the space race which further slowed the space mission launches. ^[Seck, N. (2012, August 26). Space race, on a budget, was not how Armstrong saw it. Phys.org. https://phys.org/news/2012-08-space-armstrong.html 
+]
+
+    + Increased from 2005- 2022 : Due to increased commercialization, technological advancements and building of smaller space crafts with missions becoming cost and fuel efficient. This helped more countries initiate their space missions.^[Louise Fox, L. S., West, D. M., Onder, H., &amp; Katharine Kelley, J. B. (2023, June 24). How space exploration is fueling the Fourth Industrial Revolution. Brookings. https://www.brookings.edu/articles/how-space-exploration-is-fueling-the-fourth-industrial-revolution/]
+
+5. The average mission success rate increased with the start of the launches in 1957 and until 1980 due to space race between Soviet Union and USA as described above but then has been steady in the later years.
+
+6. The rocket used for the most space missions is Cosmos-3M (11K65M) of Russia and it is Retired.
+
+
+##### **Thank you for taking the time to go through my analysis process and would appreciate any valuable feedback to improve my learning.**
+
+### References
+
+[Maven Analytics Dataset](https://mavenanalytics.io/data-playground?page=2&pageSize=5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
